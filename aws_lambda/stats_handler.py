@@ -1,13 +1,20 @@
 import os
 import requests
+import redis
 
 def stats_handler(event, context):
+    REDIS_URL = os.environ.get('REDIS_URL')
+    r = redis.StrictRedis(host=REDIS_URL, decode_responses=True)
+
     ## oauth2 ##
-    token = requests.post(url=f"https://id.twitch.tv/oauth2/token?client_id={os.environ['TWITCH_CLIENT_ID']}&client_secret={os.environ['TWITCH_CLIENT_SECRET']}&grant_type=client_credentials").json()
-        #TODO:Check si on en a deja un, sinon le stocker
+    token = r.hgetall("token")
+    if token == {} or r.ttl("token") < 60:
+        token = requests.post(url=f"https://id.twitch.tv/oauth2/token?client_id={os.environ['TWITCH_CLIENT_ID']}&client_secret={os.environ['TWITCH_CLIENT_SECRET']}&grant_type=client_credentials").json()
+        r.hmset("token",token)
+        r.expire("token",token["expires_in"])
     
     headers = {
-        'Client-ID':'gddbva13mup10zamsdju7o8qtnxs7t',
+        'Client-ID':os.environ['TWITCH_CLIENT_ID'],
         'Authorization':f'Bearer {token["access_token"]}'
     }
 
